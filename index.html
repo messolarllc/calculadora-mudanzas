@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Calculadora de Mudanzas</title>
+<meta name="description" content="Calculadora de precios de mudanzas">
+<meta name="theme-color" content="#111111">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mudanzas">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  margin: 0; padding: 20px; background: #f7f8fa; color: #1a1a1a;
+}
+.container { max-width: 760px; margin: 0 auto; }
+h1 { font-size: 22px; margin: 0 0 4px; }
+.subtitle { color: #666; font-size: 13px; margin-bottom: 20px; }
+.card {
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+  padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.card h2 { font-size: 15px; margin: 0 0 14px; color: #374151; font-weight: 600; }
+.tabs {
+  display: flex; gap: 6px; background: #f3f4f6;
+  padding: 4px; border-radius: 10px; margin-bottom: 16px;
+}
+.tab {
+  flex: 1; padding: 9px 14px; border: none; background: transparent;
+  border-radius: 7px; font-size: 13px; font-weight: 500;
+  color: #6b7280; cursor: pointer; font-family: inherit;
+}
+.tab.active { background: #fff; color: #111; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+.segmented { display: flex; gap: 6px; margin-bottom: 6px; }
+.seg-btn {
+  flex: 1; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px;
+  background: #fff; color: #6b7280; font-family: inherit;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+}
+.seg-btn.active { background: #111; color: #fff; border-color: #111; }
+.toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; }
+.toggle-label { font-size: 14px; color: #374151; font-weight: 500; }
+.switch {
+  position: relative; width: 44px; height: 24px;
+  background: #d1d5db; border-radius: 12px; cursor: pointer; transition: background 0.2s;
+}
+.switch.on { background: #111; }
+.switch .knob {
+  position: absolute; top: 2px; left: 2px; width: 20px; height: 20px;
+  background: #fff; border-radius: 50%; transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.switch.on .knob { transform: translateX(20px); }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field { display: flex; flex-direction: column; }
+.field.full { grid-column: 1 / -1; }
+label { font-size: 12px; color: #4b5563; margin-bottom: 5px; font-weight: 500; }
+input, select {
+  padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 8px;
+  font-size: 14px; background: #fff; color: #111; font-family: inherit;
+}
+input.auto, select.auto { background: #f9fafb; color: #6b7280; }
+input:focus, select:focus {
+  outline: none; border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+  background: #fff; color: #111;
+}
+.toggle-edit {
+  font-size: 11px; color: #3b82f6; cursor: pointer;
+  text-decoration: underline; margin-top: 4px; display: inline-block;
+}
+.suggestion {
+  background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px;
+  padding: 8px 12px; font-size: 12px; color: #92400e;
+  margin-top: 10px; display: none;
+}
+.suggestion.show { display: block; }
+.suggestion a { color: #92400e; text-decoration: underline; cursor: pointer; font-weight: 600; }
+.breakdown { background: #f9fafb; border-radius: 10px; padding: 14px 16px; }
+.row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; color: #374151; }
+.row .muted { color: #6b7280; font-size: 12px; }
+.row.total {
+  border-top: 1px solid #e5e7eb; margin-top: 8px; padding-top: 12px;
+  font-size: 18px; font-weight: 700; color: #111;
+}
+.total .amount { color: #059669; }
+.subheader {
+  font-size: 12px; color: #6b7280; text-transform: uppercase;
+  letter-spacing: 0.5px; margin: 16px 0 8px; font-weight: 600;
+}
+.subheader:first-child { margin-top: 0; }
+.btn {
+  background: #111; color: #fff; border: none; padding: 10px 18px;
+  border-radius: 8px; font-size: 14px; font-weight: 500;
+  cursor: pointer; font-family: inherit;
+}
+.btn:hover { background: #333; }
+.btn-secondary { background: #fff; color: #374151; border: 1px solid #d1d5db; }
+.btn-secondary:hover { background: #f3f4f6; }
+.btn-danger {
+  background: transparent; color: #dc2626; border: none;
+  font-size: 12px; cursor: pointer; padding: 4px 8px;
+}
+.btn-danger:hover { text-decoration: underline; }
+.actions { display: flex; gap: 8px; margin-top: 14px; }
+.history-filters { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.chip {
+  padding: 5px 12px; border-radius: 16px; border: 1px solid #d1d5db;
+  background: #fff; font-size: 12px; cursor: pointer; color: #6b7280; font-family: inherit;
+}
+.chip.active { background: #111; color: #fff; border-color: #111; }
+.history-item {
+  border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 14px;
+  margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;
+}
+.history-info { font-size: 13px; }
+.history-info .name { font-weight: 600; color: #111; }
+.history-info .meta { color: #6b7280; font-size: 12px; margin-top: 2px; }
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 10px; font-weight: 600; margin-right: 6px; vertical-align: middle;
+}
+.badge.local { background: #dbeafe; color: #1e40af; }
+.badge.long { background: #fce7f3; color: #9d174d; }
+.badge.notruck { background: #f3f4f6; color: #374151; }
+.badge.casa { background: #dcfce7; color: #166534; }
+.badge.apto { background: #ede9fe; color: #5b21b6; }
+.history-price { font-weight: 700; color: #059669; font-size: 16px; }
+.empty { color: #9ca3af; font-size: 13px; text-align: center; padding: 16px; }
+.toast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  background: #111; color: #fff; padding: 10px 18px; border-radius: 8px;
+  font-size: 13px; opacity: 0; transition: opacity 0.2s; pointer-events: none;
+}
+.toast.show { opacity: 1; }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Calculadora de Mudanzas</h1>
+  <p class="subtitle">Cotizá rápido y guardá el historial de presupuestos</p>
+
+  <div class="card">
+    <div class="toggle-row">
+      <span class="toggle-label">Incluir camión</span>
+      <div class="switch on" id="truckSwitch" onclick="toggleTruck()">
+        <div class="knob"></div>
+      </div>
+    </div>
+
+    <div id="serviceTabs" class="tabs">
+      <button class="tab active" data-type="local" onclick="setType('local')">Mudanza Local</button>
+      <button class="tab" data-type="long" onclick="setType('long')">Larga Distancia</button>
+    </div>
+
+    <div class="subheader">Cliente</div>
+    <div class="grid">
+      <div class="field full">
+        <label>Nombre (opcional)</label>
+        <input type="text" id="client" placeholder="Nombre del cliente">
+      </div>
+    </div>
+
+    <div class="subheader">Propiedad</div>
+    <div class="segmented">
+      <button class="seg-btn active" data-prop="apto" onclick="setProperty('apto')">Apartamento</button>
+      <button class="seg-btn" data-prop="casa" onclick="setProperty('casa')">Casa</button>
+    </div>
+
+    <div class="grid">
+      <div class="field">
+        <label>Habitaciones</label>
+        <input type="number" id="rooms" min="1" value="2">
+      </div>
+      <div class="field" id="truckConfigField">
+        <label>Configuración de camión</label>
+        <select id="truckConfig" class="auto">
+          <option value="1x16">1 × 16 pies</option>
+          <option value="1x26">1 × 26 pies</option>
+          <option value="2x26">2 × 26 pies</option>
+          <option value="16+26">1 × 16ft + 1 × 26ft</option>
+        </select>
+        <span class="toggle-edit" id="truckToggle" onclick="toggleEdit('truck')">Editar manualmente</span>
+      </div>
+      <div class="field">
+        <label>Tramos de escaleras (origen)</label>
+        <input type="number" id="stairsOrigin" min="0" value="0">
+      </div>
+      <div class="field">
+        <label>Tramos de escaleras (destino)</label>
+        <input type="number" id="stairsDest" min="0" value="0">
+      </div>
+      <div class="field full" id="milesField">
+        <label>Millas a recorrer</label>
+        <input type="number" id="miles" min="0" step="0.1" value="0">
+      </div>
+    </div>
+
+    <div class="subheader">Mano de obra (sugerida)</div>
+    <div class="grid">
+      <div class="field">
+        <label>Movers</label>
+        <input type="number" id="movers" class="auto" min="2" value="2" readonly>
+        <span class="toggle-edit" id="moversToggle" onclick="toggleEdit('movers')">Editar manualmente</span>
+      </div>
+      <div class="field">
+        <label>Horas estimadas</label>
+        <input type="number" id="hours" class="auto" min="0" step="0.25" value="2.5" readonly>
+        <span class="toggle-edit" id="hoursToggle" onclick="toggleEdit('hours')">Editar manualmente</span>
+      </div>
+    </div>
+
+    <div class="suggestion" id="suggestion"></div>
+  </div>
+
+  <div class="card">
+    <h2>Desglose</h2>
+    <div class="breakdown" id="breakdown"></div>
+    <div class="actions">
+      <button class="btn" onclick="saveQuote()">Guardar cotización</button>
+      <button class="btn btn-secondary" onclick="resetForm()">Limpiar</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Historial</h2>
+    <div class="history-filters">
+      <button class="chip active" data-filter="all" onclick="setFilter('all')">Todas</button>
+      <button class="chip" data-filter="local" onclick="setFilter('local')">Local</button>
+      <button class="chip" data-filter="long" onclick="setFilter('long')">Larga distancia</button>
+      <button class="chip" data-filter="notruck" onclick="setFilter('notruck')">Sin camión</button>
+    </div>
+    <div id="history"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== Tarifas =====
+const LABOR_BY_MOVERS = { 2: 119, 3: 169, 4: 219, 5: 269, 6: 319, 7: 369, 8: 419 };
+const TRUCK_CONFIGS = {
+  '1x16':  { label: '1 × 16 pies',          base: 120,             perMile: 1.5 },
+  '1x26':  { label: '1 × 26 pies',          base: 180,             perMile: 2.0 },
+  '2x26':  { label: '2 × 26 pies',          base: 180 + 180,       perMile: 2.0 },
+  '16+26': { label: '1 × 16ft + 1 × 26ft',  base: 120 + 180,       perMile: 2.0 }
+};
+const LONG_PER_MILE = 6.5;
+const LONG_THRESHOLD = 50;
+
+// ===== Reglas de tiempo =====
+const HOURS_PER_ROOM = 1.25;
+const HOURS_PER_STAIR = 1.5;
+const HOUSE_EXTRA = 1.0;
+const HOURS_PER_MILE = 1.5 / 60;
+
+// ===== Estado =====
+let serviceType = "local";
+let propertyType = "apto";
+let includeTruck = true;
+let historyFilter = "all";
+let moversManual = false;
+let hoursManual = false;
+let truckManual = false;
+
+function $(id) { return document.getElementById(id); }
+
+// === Tabla auto-recomendación ===
+function suggestedConfig(rooms, isHouse) {
+  const r = Math.min(5, Math.max(1, rooms));
+  // movers: 1=2, 2=3, 3=4, 4=5, 5+=6
+  const moversByRoom = { 1: 2, 2: 3, 3: 4, 4: 5, 5: 6 };
+  const movers = moversByRoom[r];
+  // camión:
+  let truck;
+  if (isHouse) {
+    truck = ({ 1: '1x16', 2: '1x26', 3: '1x26', 4: '2x26', 5: '2x26' })[r];
+  } else {
+    truck = ({ 1: '1x16', 2: '1x16', 3: '1x26', 4: '1x26', 5: '16+26' })[r];
+  }
+  return { movers, truck };
+}
+
+function suggestedHours(rooms, so, sd, miles, isHouse, withTruck) {
+  return rooms * HOURS_PER_ROOM
+    + so * HOURS_PER_STAIR
+    + sd * HOURS_PER_STAIR
+    + (isHouse ? HOUSE_EXTRA : 0)
+    + (withTruck ? miles * HOURS_PER_MILE : 0);
+}
+
+function laborRate(movers) {
+  if (LABOR_BY_MOVERS[movers] !== undefined) return LABOR_BY_MOVERS[movers];
+  return 119 + Math.max(0, movers - 2) * 50;
+}
+
+function toggleTruck() {
+  includeTruck = !includeTruck;
+  $("truckSwitch").classList.toggle("on", includeTruck);
+  $("serviceTabs").classList.toggle("hidden", !includeTruck);
+  $("truckConfigField").classList.toggle("hidden", !includeTruck);
+  $("milesField").classList.toggle("hidden", !includeTruck);
+  recomputeAuto();
+  render();
+}
+
+function setType(type) {
+  serviceType = type;
+  document.querySelectorAll(".tab").forEach(t => {
+    t.classList.toggle("active", t.dataset.type === type);
+  });
+  render();
+}
+
+function setProperty(p) {
+  propertyType = p;
+  document.querySelectorAll(".seg-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.prop === p);
+  });
+  recomputeAuto();
+  render();
+}
+
+function setFilter(f) {
+  historyFilter = f;
+  document.querySelectorAll(".chip").forEach(c => {
+    c.classList.toggle("active", c.dataset.filter === f);
+  });
+  renderHistory();
+}
+
+function toggleEdit(field) {
+  if (field === "movers") {
+    moversManual = !moversManual;
+    $("movers").readOnly = !moversManual;
+    $("movers").classList.toggle("auto", !moversManual);
+    $("moversToggle").textContent = moversManual ? "Volver a automático" : "Editar manualmente";
+  } else if (field === "hours") {
+    hoursManual = !hoursManual;
+    $("hours").readOnly = !hoursManual;
+    $("hours").classList.toggle("auto", !hoursManual);
+    $("hoursToggle").textContent = hoursManual ? "Volver a automático" : "Editar manualmente";
+  } else if (field === "truck") {
+    truckManual = !truckManual;
+    $("truckConfig").disabled = !truckManual;
+    $("truckConfig").classList.toggle("auto", !truckManual);
+    $("truckToggle").textContent = truckManual ? "Volver a automático" : "Editar manualmente";
+  }
+  recomputeAuto();
+  render();
+}
+
+function recomputeAuto() {
+  const rooms = Math.max(1, parseInt($("rooms").value) || 1);
+  const so = Math.max(0, parseInt($("stairsOrigin").value) || 0);
+  const sd = Math.max(0, parseInt($("stairsDest").value) || 0);
+  const miles = Math.max(0, parseFloat($("miles").value) || 0);
+  const isHouse = propertyType === "casa";
+  const cfg = suggestedConfig(rooms, isHouse);
+  const stairExtra = (so >= 1 || sd >= 1) ? 1 : 0;
+  const finalMovers = cfg.movers + stairExtra;
+
+  if (!moversManual) {
+    $("movers").value = finalMovers;
+  }
+  if (!hoursManual) {
+    $("hours").value = suggestedHours(rooms, so, sd, miles, isHouse, includeTruck).toFixed(2);
+  }
+  if (!truckManual && includeTruck) {
+    $("truckConfig").value = cfg.truck;
+  }
+}
+
+function calculate() {
+  const rooms = Math.max(1, parseInt($("rooms").value) || 1);
+  const so = Math.max(0, parseInt($("stairsOrigin").value) || 0);
+  const sd = Math.max(0, parseInt($("stairsDest").value) || 0);
+  const miles = includeTruck ? Math.max(0, parseFloat($("miles").value) || 0) : 0;
+  const movers = Math.max(2, parseInt($("movers").value) || 2);
+  const hours = Math.max(0, parseFloat($("hours").value) || 0);
+  const truckCfg = $("truckConfig").value;
+
+  const rate = laborRate(movers);
+  const labor = rate * hours;
+
+  let truckBase = 0;
+  let perMile = 0;
+  let milesCost = 0;
+  if (includeTruck) {
+    if (serviceType === "local") {
+      const t = TRUCK_CONFIGS[truckCfg];
+      truckBase = t.base;
+      perMile = t.perMile;
+    } else {
+      perMile = LONG_PER_MILE;
+    }
+    milesCost = perMile * miles;
+  }
+  const total = labor + truckBase + milesCost;
+
+  return {
+    includeTruck, type: serviceType, propertyType, rooms,
+    stairsOrigin: so, stairsDest: sd,
+    movers, hours, truckCfg, miles, rate, labor, truckBase, milesCost, perMile, total
+  };
+}
+
+function render() {
+  const c = calculate();
+  const fmt = n => "$" + n.toFixed(2);
+  const rows = [
+    `<div class="row">
+      <span>Mano de obra <span class="muted">(${c.movers} movers × ${fmt(c.rate)}/h × ${c.hours}h)</span></span>
+      <span>${fmt(c.labor)}</span>
+    </div>`
+  ];
+  if (c.includeTruck) {
+    if (c.type === "local") {
+      const cfgLabel = TRUCK_CONFIGS[c.truckCfg].label;
+      rows.push(`<div class="row">
+        <span>Camión <span class="muted">(${cfgLabel})</span></span>
+        <span>${fmt(c.truckBase)}</span>
+      </div>`);
+    }
+    rows.push(`<div class="row">
+      <span>Millas <span class="muted">(${c.miles} mi × $${c.perMile.toFixed(2)})</span></span>
+      <span>${fmt(c.milesCost)}</span>
+    </div>`);
+  } else {
+    rows.push(`<div class="row"><span class="muted">Sin camión — solo mano de obra</span><span></span></div>`);
+  }
+  rows.push(`<div class="row total">
+    <span>Total</span>
+    <span class="amount">${fmt(c.total)}</span>
+  </div>`);
+  $("breakdown").innerHTML = rows.join("");
+
+  const s = $("suggestion");
+  if (!c.includeTruck) {
+    s.classList.remove("show");
+  } else if (c.miles > LONG_THRESHOLD && serviceType === "local") {
+    s.innerHTML = `Esta mudanza tiene ${c.miles} millas (>${LONG_THRESHOLD}). <a onclick="setType('long')">Cambiar a Larga Distancia</a>`;
+    s.classList.add("show");
+  } else if (c.miles > 0 && c.miles <= LONG_THRESHOLD && serviceType === "long") {
+    s.innerHTML = `Esta mudanza tiene solo ${c.miles} millas. <a onclick="setType('local')">Cambiar a Local</a>`;
+    s.classList.add("show");
+  } else {
+    s.classList.remove("show");
+  }
+}
+
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 1800);
+}
+
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem("mudanzas_history") || "[]"); }
+  catch { return []; }
+}
+
+function saveHistory(list) {
+  localStorage.setItem("mudanzas_history", JSON.stringify(list));
+}
+
+function renderHistory() {
+  const list = loadHistory();
+  const filtered = historyFilter === "all" ? list : list.filter(q => {
+    if (historyFilter === "notruck") return q.includeTruck === false;
+    return q.includeTruck !== false && (q.type || "local") === historyFilter;
+  });
+  const container = $("history");
+  if (filtered.length === 0) {
+    container.innerHTML = '<div class="empty">Sin cotizaciones guardadas</div>';
+    return;
+  }
+  container.innerHTML = filtered.map((q) => {
+    const realIdx = list.indexOf(q);
+    let typeBadge;
+    if (q.includeTruck === false) {
+      typeBadge = '<span class="badge notruck">SIN CAMIÓN</span>';
+    } else if ((q.type || "local") === "local") {
+      typeBadge = '<span class="badge local">LOCAL</span>';
+    } else {
+      typeBadge = '<span class="badge long">LARGA</span>';
+    }
+    const propBadge = q.propertyType === "casa"
+      ? '<span class="badge casa">CASA</span>'
+      : '<span class="badge apto">APTO</span>';
+    const truckLabel = (q.includeTruck !== false && q.truckCfg && TRUCK_CONFIGS[q.truckCfg])
+      ? TRUCK_CONFIGS[q.truckCfg].label
+      : null;
+    const meta = q.includeTruck === false
+      ? `${q.date} · ${q.rooms} hab · ${q.movers} movers · ${q.hours}h`
+      : `${q.date} · ${q.rooms} hab · ${q.movers} movers · ${q.hours}h · ${q.miles}mi${truckLabel ? ` · ${truckLabel}` : ''}`;
+    return `
+    <div class="history-item">
+      <div class="history-info">
+        <div class="name">${typeBadge}${propBadge}${q.client || "Sin nombre"}</div>
+        <div class="meta">${meta}</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="history-price">$${q.total.toFixed(2)}</span>
+        <button class="btn-danger" onclick="deleteQuote(${realIdx})">Borrar</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function saveQuote() {
+  const c = calculate();
+  const client = $("client").value.trim();
+  const quote = {
+    includeTruck: c.includeTruck,
+    type: c.type,
+    propertyType: c.propertyType,
+    client,
+    date: new Date().toLocaleDateString("es-AR", { year: "numeric", month: "short", day: "numeric" }),
+    rooms: c.rooms,
+    stairsOrigin: c.stairsOrigin,
+    stairsDest: c.stairsDest,
+    movers: c.movers,
+    hours: parseFloat(c.hours),
+    truckCfg: c.includeTruck ? c.truckCfg : null,
+    miles: c.miles,
+    total: c.total
+  };
+  const list = loadHistory();
+  list.unshift(quote);
+  saveHistory(list);
+  renderHistory();
+  toast("Cotización guardada");
+}
+
+function deleteQuote(i) {
+  const list = loadHistory();
+  list.splice(i, 1);
+  saveHistory(list);
+  renderHistory();
+}
+
+function resetForm() {
+  $("client").value = "";
+  $("rooms").value = 2;
+  $("stairsOrigin").value = 0;
+  $("stairsDest").value = 0;
+  $("miles").value = 0;
+  moversManual = false;
+  hoursManual = false;
+  truckManual = false;
+  $("movers").readOnly = true;
+  $("movers").classList.add("auto");
+  $("moversToggle").textContent = "Editar manualmente";
+  $("hours").readOnly = true;
+  $("hours").classList.add("auto");
+  $("hoursToggle").textContent = "Editar manualmente";
+  $("truckConfig").disabled = false;
+  $("truckConfig").classList.add("auto");
+  $("truckToggle").textContent = "Editar manualmente";
+  if (!includeTruck) toggleTruck();
+  setProperty("apto");
+  setType("local");
+}
+
+["rooms", "stairsOrigin", "stairsDest", "miles"].forEach(id => {
+  $(id).addEventListener("input", () => { recomputeAuto(); render(); });
+});
+["movers", "hours", "truckConfig"].forEach(id => {
+  $(id).addEventListener("input", render);
+  $(id).addEventListener("change", render);
+});
+
+recomputeAuto();
+render();
+renderHistory();
+
+// Service Worker para funcionar offline (PWA)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
