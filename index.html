@@ -233,7 +233,7 @@ input, select, textarea { max-width: 100%; }
 <div class="container">
   <div class="header-row">
     <h1>Calculadora de Mudanzas</h1>
-    <span class="version-badge">v0.8</span>
+    <span class="version-badge">v1.0</span>
   </div>
   <p class="subtitle">Cotizá rápido y guardá el historial de presupuestos</p>
 
@@ -261,6 +261,15 @@ input, select, textarea { max-width: 100%; }
     <div id="serviceTabs" class="tabs">
       <button class="tab active" data-type="local" onclick="setType('local')">Mudanza Local</button>
       <button class="tab" data-type="long" onclick="setType('long')">Larga Distancia</button>
+    </div>
+
+    <div id="loadModeSection" class="hidden">
+      <div class="subheader">Tipo de servicio</div>
+      <div class="segmented">
+        <button class="seg-btn active" data-mode="both" onclick="setLoadMode('both')">Cargar y descargar</button>
+        <button class="seg-btn" data-mode="load" onclick="setLoadMode('load')">Solo cargar</button>
+        <button class="seg-btn" data-mode="unload" onclick="setLoadMode('unload')">Solo descargar</button>
+      </div>
     </div>
 
     <div class="subheader">Cliente</div>
@@ -299,6 +308,10 @@ input, select, textarea { max-width: 100%; }
       </div>
       <div class="elev-toggle" id="quickDropoffToggle" onclick="toggleQuickDropoff()">
         <span>Dejar todo en un solo punto <span style="opacity:0.6; font-weight:400;">(garage/living, -15%)</span></span>
+        <div class="switch-mini"></div>
+      </div>
+      <div class="elev-toggle hidden" id="weekdayToggle" onclick="toggleWeekday()">
+        <span>Día de semana <span style="opacity:0.6; font-weight:400;">(lunes a viernes, solo larga distancia, -10%)</span></span>
         <div class="switch-mini"></div>
       </div>
     </div>
@@ -386,7 +399,9 @@ const LONG_PER_MILE_2 = 10;
 const LONG_THRESHOLD = 50;
 
 // ===== Reglas de tiempo =====
-const HOURS_PER_ROOM = 1.25;
+const HOURS_PER_ROOM = 1.25;       // cargar + descargar
+const HOURS_PER_ROOM_LOAD = 0.75;  // solo cargar (sin camión)
+const HOURS_PER_ROOM_UNLOAD = 0.5; // solo descargar (sin camión)
 const HOURS_PER_STAIR = 1.5;
 const HOUSE_EXTRA = 1.0;
 const HOURS_PER_MILE = 1.5 / 60;
@@ -400,9 +415,12 @@ let elevatorOrigin = false;
 let elevatorDest = false;
 let quickDropoff = false;
 let packing = false;
+let weekdayDiscount = false; // solo aplica en larga distancia
+let loadMode = "both"; // 'both' | 'load' | 'unload' — solo aplica sin camión
 let historyFilter = "all";
 
 const QUICK_DROPOFF_DISCOUNT = 0.15;
+const WEEKDAY_DISCOUNT = 0.10;
 const PACKING_SURCHARGE = 0.45;
 let moversManual = false;
 let hoursManual = false;
@@ -426,8 +444,14 @@ function suggestedConfig(rooms, isHouse) {
   return { movers, truck };
 }
 
-function suggestedHours(rooms, so, sd, miles, isHouse, withTruck, eo, ed) {
-  return rooms * HOURS_PER_ROOM
+function suggestedHours(rooms, so, sd, miles, isHouse, withTruck, eo, ed, mode) {
+  // Tasa por habitación según modo (solo aplica sin camión)
+  let perRoom = HOURS_PER_ROOM;
+  if (!withTruck) {
+    if (mode === 'load') perRoom = HOURS_PER_ROOM_LOAD;
+    else if (mode === 'unload') perRoom = HOURS_PER_ROOM_UNLOAD;
+  }
+  return rooms * perRoom
     + so * HOURS_PER_STAIR
     + sd * HOURS_PER_STAIR
     + (isHouse ? HOUSE_EXTRA : 0)
@@ -460,6 +484,26 @@ function togglePacking() {
   render();
 }
 
+function toggleWeekday() {
+  weekdayDiscount = !weekdayDiscount;
+  $("weekdayToggle").classList.toggle("on", weekdayDiscount);
+  render();
+}
+
+function updateWeekdayVisibility() {
+  const visible = includeTruck && serviceType === "long";
+  $("weekdayToggle").classList.toggle("hidden", !visible);
+}
+
+function setLoadMode(mode) {
+  loadMode = mode;
+  document.querySelectorAll("#loadModeSection .seg-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.mode === mode);
+  });
+  recomputeAuto();
+  render();
+}
+
 function laborRate(movers) {
   if (LABOR_BY_MOVERS[movers] !== undefined) return LABOR_BY_MOVERS[movers];
   return 119 + Math.max(0, movers - 2) * 50;
@@ -471,6 +515,8 @@ function toggleTruck() {
   $("serviceTabs").classList.toggle("hidden", !includeTruck);
   $("truckConfigField").classList.toggle("hidden", !includeTruck);
   $("milesField").classList.toggle("hidden", !includeTruck);
+  $("loadModeSection").classList.toggle("hidden", includeTruck);
+  updateWeekdayVisibility();
   recomputeAuto();
   render();
 }
@@ -480,6 +526,7 @@ function setType(type) {
   document.querySelectorAll(".tab").forEach(t => {
     t.classList.toggle("active", t.dataset.type === type);
   });
+  updateWeekdayVisibility();
   render();
 }
 
@@ -536,7 +583,7 @@ function recomputeAuto() {
     $("movers").value = finalMovers;
   }
   if (!hoursManual) {
-    $("hours").value = suggestedHours(rooms, so, sd, miles, isHouse, includeTruck, elevatorOrigin, elevatorDest).toFixed(2);
+    $("hours").value = suggestedHours(rooms, so, sd, miles, isHouse, includeTruck, elevatorOrigin, elevatorDest, loadMode).toFixed(2);
   }
   if (!truckManual && includeTruck) {
     $("truckConfig").value = cfg.truck;
@@ -570,7 +617,10 @@ function calculate() {
   }
   const packingSurcharge = packing ? labor * PACKING_SURCHARGE : 0;
   const subtotal = labor + packingSurcharge + truckBase + milesCost;
-  const discount = quickDropoff ? subtotal * QUICK_DROPOFF_DISCOUNT : 0;
+  const dropoffDiscount = quickDropoff ? subtotal * QUICK_DROPOFF_DISCOUNT : 0;
+  const weekdayActive = includeTruck && serviceType === "long" && weekdayDiscount;
+  const weekdayDiscountAmount = weekdayActive ? subtotal * WEEKDAY_DISCOUNT : 0;
+  const discount = dropoffDiscount + weekdayDiscountAmount;
   const total = subtotal - discount;
 
   return {
@@ -578,10 +628,11 @@ function calculate() {
     stairsOrigin: so, stairsDest: sd,
     elevatorOrigin: propertyType === "apto" ? elevatorOrigin : false,
     elevatorDest: propertyType === "apto" ? elevatorDest : false,
-    quickDropoff, packing,
+    quickDropoff, packing, weekdayDiscount: weekdayActive,
+    loadMode: includeTruck ? "both" : loadMode,
     movers, hours, truckCfg, miles, rate, labor, packingSurcharge,
     truckBase, milesCost, perMile,
-    subtotal, discount, total
+    subtotal, dropoffDiscount, weekdayDiscountAmount, discount, total
   };
 }
 
@@ -615,15 +666,23 @@ function render() {
   } else {
     rows.push(`<div class="row"><span class="muted">Sin camión — solo mano de obra</span><span></span></div>`);
   }
-  if (c.quickDropoff && c.discount > 0) {
+  if (c.discount > 0) {
     rows.push(`<div class="row">
       <span style="color:#6b7280; font-style:italic;">Subtotal</span>
       <span style="color:#6b7280;">${fmt(c.subtotal)}</span>
     </div>`);
-    rows.push(`<div class="row" style="color:#059669;">
-      <span>Descuento <span class="muted" style="color:#10b981;">(dejar en un punto, -15%)</span></span>
-      <span>−${fmt(c.discount)}</span>
-    </div>`);
+    if (c.dropoffDiscount > 0) {
+      rows.push(`<div class="row" style="color:#059669;">
+        <span>Descuento <span class="muted" style="color:#10b981;">(dejar en un punto, -15%)</span></span>
+        <span>−${fmt(c.dropoffDiscount)}</span>
+      </div>`);
+    }
+    if (c.weekdayDiscountAmount > 0) {
+      rows.push(`<div class="row" style="color:#059669;">
+        <span>Descuento <span class="muted" style="color:#10b981;">(día de semana, -10%)</span></span>
+        <span>−${fmt(c.weekdayDiscountAmount)}</span>
+      </div>`);
+    }
   }
   rows.push(`<div class="row total">
     <span>Total</span>
@@ -676,7 +735,10 @@ function renderHistory() {
     const realIdx = list.indexOf(q);
     let typeBadge;
     if (q.includeTruck === false) {
-      typeBadge = '<span class="badge notruck">SIN CAMIÓN</span>';
+      const modeLabel = q.loadMode === "load" ? "SOLO CARGAR"
+                      : q.loadMode === "unload" ? "SOLO DESCARGAR"
+                      : "SIN CAMIÓN";
+      typeBadge = `<span class="badge notruck">${modeLabel}</span>`;
     } else if ((q.type || "local") === "local") {
       typeBadge = '<span class="badge local">LOCAL</span>';
     } else {
@@ -691,6 +753,9 @@ function renderHistory() {
     const packingBadge = q.packing
       ? '<span class="badge" style="background:#dbeafe; color:#1e40af;">PACKING</span>'
       : '';
+    const weekdayBadge = q.weekdayDiscount
+      ? '<span class="badge" style="background:#fef3c7; color:#92400e;">-10% L-V</span>'
+      : '';
     const truckLabel = (q.includeTruck !== false && q.truckCfg && TRUCK_CONFIGS[q.truckCfg])
       ? TRUCK_CONFIGS[q.truckCfg].label
       : null;
@@ -704,7 +769,7 @@ function renderHistory() {
     return `
     <div class="history-item">
       <div class="history-info">
-        <div class="name">${typeBadge}${propBadge}${packingBadge}${dropoffBadge}${q.client || "Sin nombre"}</div>
+        <div class="name">${typeBadge}${propBadge}${packingBadge}${dropoffBadge}${weekdayBadge}${q.client || "Sin nombre"}</div>
         <div class="meta">${meta}</div>
         ${sellerLine}
       </div>
@@ -737,12 +802,16 @@ function saveQuote() {
     elevatorDest: c.elevatorDest,
     quickDropoff: c.quickDropoff,
     packing: c.packing,
+    weekdayDiscount: c.weekdayDiscount,
+    loadMode: c.loadMode,
     movers: c.movers,
     hours: parseFloat(c.hours),
     truckCfg: c.includeTruck ? c.truckCfg : null,
     miles: c.miles,
     packingSurcharge: c.packingSurcharge,
     subtotal: c.subtotal,
+    dropoffDiscount: c.dropoffDiscount,
+    weekdayDiscountAmount: c.weekdayDiscountAmount,
     discount: c.discount,
     total: c.total
   };
@@ -797,6 +866,11 @@ function resetForm() {
   // Reset packing
   packing = false;
   $("packingToggle").classList.remove("on");
+  // Reset descuento día de semana
+  weekdayDiscount = false;
+  $("weekdayToggle").classList.remove("on");
+  // Reset modo de carga
+  setLoadMode("both");
   // Reset de toggles
   if (!includeTruck) toggleTruck();
   setProperty("apto");

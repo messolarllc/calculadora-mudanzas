@@ -1,5 +1,5 @@
 // Service Worker — cachea los archivos para que la app funcione sin internet
-const CACHE_NAME = 'mudanzas-v0.8';
+const CACHE_NAME = 'mudanzas-v1.0';
 const ASSETS = [
   './',
   './index.html',
