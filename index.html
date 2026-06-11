@@ -232,7 +232,7 @@ input, select, textarea { max-width: 100%; }
 <div class="container">
   <div class="header-row">
     <h1>Calculadora de Mudanzas</h1>
-    <span class="version-badge">v5</span>
+    <span class="version-badge">v6</span>
   </div>
   <p class="subtitle">Cotizá rápido y guardá el historial de presupuestos</p>
 
@@ -350,12 +350,13 @@ input, select, textarea { max-width: 100%; }
 // ===== Tarifas =====
 const LABOR_BY_MOVERS = { 2: 119, 3: 169, 4: 219, 5: 269, 6: 319, 7: 369, 8: 419 };
 const TRUCK_CONFIGS = {
-  '1x16':  { label: '1 × 16 pies',          base: 120,             perMile: 1.5 },
-  '1x26':  { label: '1 × 26 pies',          base: 180,             perMile: 2.0 },
-  '2x26':  { label: '2 × 26 pies',          base: 180 + 180,       perMile: 2.0 },
-  '16+26': { label: '1 × 16ft + 1 × 26ft',  base: 120 + 180,       perMile: 2.0 }
+  '1x16':  { label: '1 × 16 pies',          base: 120,             perMile: 1.5, count: 1 },
+  '1x26':  { label: '1 × 26 pies',          base: 180,             perMile: 2.0, count: 1 },
+  '2x26':  { label: '2 × 26 pies',          base: 180 + 180,       perMile: 2.0, count: 2 },
+  '16+26': { label: '1 × 16ft + 1 × 26ft',  base: 120 + 180,       perMile: 2.0, count: 2 }
 };
-const LONG_PER_MILE = 6.5;
+const LONG_PER_MILE_1 = 6.5;
+const LONG_PER_MILE_2 = 10;
 const LONG_THRESHOLD = 50;
 
 // ===== Reglas de tiempo =====
@@ -515,12 +516,12 @@ function calculate() {
   let perMile = 0;
   let milesCost = 0;
   if (includeTruck) {
+    const t = TRUCK_CONFIGS[truckCfg];
     if (serviceType === "local") {
-      const t = TRUCK_CONFIGS[truckCfg];
       truckBase = t.base;
       perMile = t.perMile;
     } else {
-      perMile = LONG_PER_MILE;
+      perMile = t.count === 2 ? LONG_PER_MILE_2 : LONG_PER_MILE_1;
     }
     milesCost = perMile * miles;
   }
