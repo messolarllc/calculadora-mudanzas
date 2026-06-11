@@ -105,6 +105,25 @@ input:focus, select:focus {
   letter-spacing: 0.5px; margin: 16px 0 8px; font-weight: 600;
 }
 .subheader:first-child { margin-top: 0; }
+.elevator-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; }
+.elev-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px; background: #f9fafb; border: 1px solid #e5e7eb;
+  border-radius: 8px; cursor: pointer;
+  font-size: 13px; color: #374151; font-weight: 500;
+}
+.elev-toggle.on { background: #ecfdf5; border-color: #6ee7b7; color: #065f46; }
+.elev-toggle .switch-mini {
+  position: relative; width: 36px; height: 20px;
+  background: #d1d5db; border-radius: 10px; transition: background 0.2s; flex-shrink: 0;
+}
+.elev-toggle.on .switch-mini { background: #059669; }
+.elev-toggle .switch-mini::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px; background: #fff; border-radius: 50%;
+  transition: transform 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+.elev-toggle.on .switch-mini::after { transform: translateX(16px); }
 .btn {
   background: #111; color: #fff; border: none; padding: 10px 18px;
   border-radius: 8px; font-size: 14px; font-weight: 500;
@@ -213,7 +232,7 @@ input, select, textarea { max-width: 100%; }
 <div class="container">
   <div class="header-row">
     <h1>Calculadora de Mudanzas</h1>
-    <span class="version-badge">v4</span>
+    <span class="version-badge">v5</span>
   </div>
   <p class="subtitle">Cotizá rápido y guardá el historial de presupuestos</p>
 
@@ -242,6 +261,20 @@ input, select, textarea { max-width: 100%; }
     <div class="segmented">
       <button class="seg-btn active" data-prop="apto" onclick="setProperty('apto')">Apartamento</button>
       <button class="seg-btn" data-prop="casa" onclick="setProperty('casa')">Casa</button>
+    </div>
+
+    <div id="elevatorSection">
+      <div class="subheader">Ascensor</div>
+      <div class="elevator-group">
+        <div class="elev-toggle" id="elevOriginToggle" onclick="toggleElevator('origin')">
+          <span>Ascensor en origen <span style="opacity:0.6; font-weight:400;">(+2h)</span></span>
+          <div class="switch-mini"></div>
+        </div>
+        <div class="elev-toggle" id="elevDestToggle" onclick="toggleElevator('dest')">
+          <span>Ascensor en destino <span style="opacity:0.6; font-weight:400;">(+2h)</span></span>
+          <div class="switch-mini"></div>
+        </div>
+      </div>
     </div>
 
     <div class="grid">
@@ -330,11 +363,14 @@ const HOURS_PER_ROOM = 1.25;
 const HOURS_PER_STAIR = 1.5;
 const HOUSE_EXTRA = 1.0;
 const HOURS_PER_MILE = 1.5 / 60;
+const ELEVATOR_HOURS = 2;
 
 // ===== Estado =====
 let serviceType = "local";
 let propertyType = "apto";
 let includeTruck = true;
+let elevatorOrigin = false;
+let elevatorDest = false;
 let historyFilter = "all";
 let moversManual = false;
 let hoursManual = false;
@@ -358,12 +394,26 @@ function suggestedConfig(rooms, isHouse) {
   return { movers, truck };
 }
 
-function suggestedHours(rooms, so, sd, miles, isHouse, withTruck) {
+function suggestedHours(rooms, so, sd, miles, isHouse, withTruck, eo, ed) {
   return rooms * HOURS_PER_ROOM
     + so * HOURS_PER_STAIR
     + sd * HOURS_PER_STAIR
     + (isHouse ? HOUSE_EXTRA : 0)
+    + ((!isHouse && eo) ? ELEVATOR_HOURS : 0)
+    + ((!isHouse && ed) ? ELEVATOR_HOURS : 0)
     + (withTruck ? miles * HOURS_PER_MILE : 0);
+}
+
+function toggleElevator(side) {
+  if (side === 'origin') {
+    elevatorOrigin = !elevatorOrigin;
+    $("elevOriginToggle").classList.toggle("on", elevatorOrigin);
+  } else {
+    elevatorDest = !elevatorDest;
+    $("elevDestToggle").classList.toggle("on", elevatorDest);
+  }
+  recomputeAuto();
+  render();
 }
 
 function laborRate(movers) {
@@ -394,6 +444,7 @@ function setProperty(p) {
   document.querySelectorAll(".seg-btn").forEach(b => {
     b.classList.toggle("active", b.dataset.prop === p);
   });
+  $("elevatorSection").classList.toggle("hidden", p !== "apto");
   recomputeAuto();
   render();
 }
@@ -441,7 +492,7 @@ function recomputeAuto() {
     $("movers").value = finalMovers;
   }
   if (!hoursManual) {
-    $("hours").value = suggestedHours(rooms, so, sd, miles, isHouse, includeTruck).toFixed(2);
+    $("hours").value = suggestedHours(rooms, so, sd, miles, isHouse, includeTruck, elevatorOrigin, elevatorDest).toFixed(2);
   }
   if (!truckManual && includeTruck) {
     $("truckConfig").value = cfg.truck;
@@ -478,6 +529,8 @@ function calculate() {
   return {
     includeTruck, type: serviceType, propertyType, rooms,
     stairsOrigin: so, stairsDest: sd,
+    elevatorOrigin: propertyType === "apto" ? elevatorOrigin : false,
+    elevatorDest: propertyType === "apto" ? elevatorDest : false,
     movers, hours, truckCfg, miles, rate, labor, truckBase, milesCost, perMile, total
   };
 }
@@ -598,6 +651,8 @@ function saveQuote() {
     rooms: c.rooms,
     stairsOrigin: c.stairsOrigin,
     stairsDest: c.stairsDest,
+    elevatorOrigin: c.elevatorOrigin,
+    elevatorDest: c.elevatorDest,
     movers: c.movers,
     hours: parseFloat(c.hours),
     truckCfg: c.includeTruck ? c.truckCfg : null,
@@ -644,6 +699,11 @@ function resetForm() {
   $("truckConfig").disabled = true;
   $("truckConfig").classList.add("auto");
   $("truckToggle").textContent = "Editar manualmente";
+  // Reset ascensores
+  elevatorOrigin = false;
+  elevatorDest = false;
+  $("elevOriginToggle").classList.remove("on");
+  $("elevDestToggle").classList.remove("on");
   // Reset de toggles
   if (!includeTruck) toggleTruck();
   setProperty("apto");
