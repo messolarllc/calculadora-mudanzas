@@ -20,7 +20,17 @@ body {
   margin: 0; padding: 20px; background: #f7f8fa; color: #1a1a1a;
 }
 .container { max-width: 760px; margin: 0 auto; }
+.header-row { display: flex; align-items: baseline; gap: 8px; }
 h1 { font-size: 22px; margin: 0 0 4px; }
+.version-badge {
+  font-size: 11px;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-family: -apple-system, monospace;
+}
 .subtitle { color: #666; font-size: 13px; margin-bottom: 20px; }
 .card {
   background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
@@ -201,7 +211,10 @@ input, select, textarea { max-width: 100%; }
 </head>
 <body>
 <div class="container">
-  <h1>Calculadora de Mudanzas</h1>
+  <div class="header-row">
+    <h1>Calculadora de Mudanzas</h1>
+    <span class="version-badge">v4</span>
+  </div>
   <p class="subtitle">Cotizá rápido y guardá el historial de presupuestos</p>
 
   <div class="card">
