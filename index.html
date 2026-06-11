@@ -105,6 +105,7 @@ input:focus, select:focus {
   letter-spacing: 0.5px; margin: 16px 0 8px; font-weight: 600;
 }
 .subheader:first-child { margin-top: 0; }
+.hint-saved { font-size: 11px; color: #059669; margin-top: 6px; display: inline-block; }
 .elevator-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; }
 .elev-toggle {
   display: flex; align-items: center; justify-content: space-between;
@@ -232,11 +233,24 @@ input, select, textarea { max-width: 100%; }
 <div class="container">
   <div class="header-row">
     <h1>Calculadora de Mudanzas</h1>
-    <span class="version-badge">v6</span>
+    <span class="version-badge">v7</span>
   </div>
   <p class="subtitle">Cotizá rápido y guardá el historial de presupuestos</p>
 
   <div class="card">
+    <div class="subheader">Vendedor</div>
+    <div class="grid">
+      <div class="field">
+        <label>Tu nombre</label>
+        <input type="text" id="userName" placeholder="Ej: Juan Pérez">
+      </div>
+      <div class="field">
+        <label>Tu email</label>
+        <input type="email" id="userEmail" placeholder="tu@email.com">
+      </div>
+    </div>
+    <span class="hint-saved" id="userSaved" style="display:none;">✓ Tus datos quedan guardados en este dispositivo</span>
+
     <div class="toggle-row">
       <span class="toggle-label">Incluir camión</span>
       <div class="switch on" id="truckSwitch" onclick="toggleTruck()">
@@ -626,11 +640,16 @@ function renderHistory() {
     const meta = q.includeTruck === false
       ? `${q.date} · ${q.rooms} hab · ${q.movers} movers · ${q.hours}h`
       : `${q.date} · ${q.rooms} hab · ${q.movers} movers · ${q.hours}h · ${q.miles}mi${truckLabel ? ` · ${truckLabel}` : ''}`;
+    const seller = q.seller || {};
+    const sellerLine = (seller.name || seller.email)
+      ? `<div class="meta" style="color:#6b7280; font-style:italic;">Vendedor: ${seller.name || ""}${seller.name && seller.email ? " · " : ""}${seller.email || ""}</div>`
+      : "";
     return `
     <div class="history-item">
       <div class="history-info">
         <div class="name">${typeBadge}${propBadge}${q.client || "Sin nombre"}</div>
         <div class="meta">${meta}</div>
+        ${sellerLine}
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <span class="history-price">$${q.total.toFixed(2)}</span>
@@ -643,10 +662,15 @@ function renderHistory() {
 function saveQuote() {
   const c = calculate();
   const client = $("client").value.trim();
+  const seller = {
+    name: $("userName").value.trim(),
+    email: $("userEmail").value.trim()
+  };
   const quote = {
     includeTruck: c.includeTruck,
     type: c.type,
     propertyType: c.propertyType,
+    seller,
     client,
     date: new Date().toLocaleDateString("es-AR", { year: "numeric", month: "short", day: "numeric" }),
     rooms: c.rooms,
@@ -721,6 +745,28 @@ function resetForm() {
   $(id).addEventListener("input", render);
   $(id).addEventListener("change", render);
 });
+
+// ===== Vendedor (persiste en localStorage) =====
+const USER_KEY = "mudanzas_user";
+function loadUser() {
+  try { return JSON.parse(localStorage.getItem(USER_KEY) || "{}"); }
+  catch { return {}; }
+}
+function saveUser() {
+  const u = { name: $("userName").value.trim(), email: $("userEmail").value.trim() };
+  localStorage.setItem(USER_KEY, JSON.stringify(u));
+  const s = $("userSaved");
+  if (u.name || u.email) { s.style.display = "inline-block"; }
+  else { s.style.display = "none"; }
+}
+(function initUser() {
+  const u = loadUser();
+  $("userName").value = u.name || "";
+  $("userEmail").value = u.email || "";
+  if (u.name || u.email) $("userSaved").style.display = "inline-block";
+  $("userName").addEventListener("input", saveUser);
+  $("userEmail").addEventListener("input", saveUser);
+})();
 
 recomputeAuto();
 render();
