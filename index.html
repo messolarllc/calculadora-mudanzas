@@ -141,22 +141,47 @@ input:focus, select:focus {
 .toast.show { opacity: 1; }
 .hidden { display: none !important; }
 
-/* ===== Layout móvil ===== */
-@media (max-width: 600px) {
-  body { padding: 10px; }
-  .container { max-width: 100%; }
+/* ===== Layout móvil — más agresivo para evitar desbordes ===== */
+html, body { overflow-x: hidden; }
+.field { min-width: 0; }
+input, select, textarea { max-width: 100%; }
+
+@media (max-width: 820px) {
+  body {
+    padding: 10px;
+    padding-left: max(10px, env(safe-area-inset-left));
+    padding-right: max(10px, env(safe-area-inset-right));
+    box-sizing: border-box;
+  }
+  .container { max-width: 100%; box-sizing: border-box; }
   h1 { font-size: 19px; }
   .subtitle { font-size: 12px; margin-bottom: 12px; }
-  .card { padding: 14px; margin-bottom: 12px; border-radius: 10px; }
-  .grid { grid-template-columns: 1fr; gap: 10px; }
+  .card {
+    padding: 14px;
+    margin-bottom: 12px;
+    border-radius: 10px;
+    box-sizing: border-box;
+    width: 100%;
+  }
+  /* Grid en una sola columna para que cada input use el ancho completo */
+  .grid { grid-template-columns: 1fr !important; gap: 10px; }
   .field.full { grid-column: auto; }
   .tabs { margin-bottom: 12px; }
   .tab { padding: 8px 10px; font-size: 12px; }
+  .segmented { gap: 6px; }
   .seg-btn { padding: 9px; font-size: 12px; }
-  input, select { font-size: 14px; padding: 9px 10px; }
+  input, select {
+    font-size: 14px;
+    padding: 9px 10px;
+    width: 100%;
+    box-sizing: border-box;
+  }
   .breakdown { padding: 10px 12px; }
-  .row { font-size: 13px; }
+  .row { font-size: 13px; gap: 8px; }
+  .row > span { min-width: 0; word-wrap: break-word; }
   .row.total { font-size: 16px; }
+  .row .muted { font-size: 11px; }
+  /* Historial: stack vertical en móvil */
   .history-item {
     flex-direction: column;
     align-items: stretch;
@@ -164,9 +189,11 @@ input:focus, select:focus {
   }
   .history-item > div:last-child {
     justify-content: space-between !important;
+    width: 100%;
   }
-  .history-info .meta { line-height: 1.4; }
-  .history-filters { gap: 4px; }
+  .history-info { width: 100%; }
+  .history-info .meta { line-height: 1.4; word-wrap: break-word; }
+  .history-filters { gap: 4px; flex-wrap: wrap; }
   .chip { padding: 4px 10px; font-size: 11px; }
   .btn, .btn-secondary { padding: 10px 14px; font-size: 13px; }
 }
