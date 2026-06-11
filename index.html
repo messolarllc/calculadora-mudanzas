@@ -233,7 +233,7 @@ input, select, textarea { max-width: 100%; }
 <div class="container">
   <div class="header-row">
     <h1>Calculadora de Mudanzas</h1>
-    <span class="version-badge">v7</span>
+    <span class="version-badge">v0.8</span>
   </div>
   <p class="subtitle">Cotizá rápido y guardá el historial de presupuestos</p>
 
@@ -288,6 +288,18 @@ input, select, textarea { max-width: 100%; }
           <span>Ascensor en destino <span style="opacity:0.6; font-weight:400;">(+2h)</span></span>
           <div class="switch-mini"></div>
         </div>
+      </div>
+    </div>
+
+    <div class="subheader">Servicios adicionales</div>
+    <div class="elevator-group">
+      <div class="elev-toggle" id="packingToggle" onclick="togglePacking()">
+        <span>Incluye packing <span style="opacity:0.6; font-weight:400;">(+45% del labor)</span></span>
+        <div class="switch-mini"></div>
+      </div>
+      <div class="elev-toggle" id="quickDropoffToggle" onclick="toggleQuickDropoff()">
+        <span>Dejar todo en un solo punto <span style="opacity:0.6; font-weight:400;">(garage/living, -15%)</span></span>
+        <div class="switch-mini"></div>
       </div>
     </div>
 
@@ -386,7 +398,12 @@ let propertyType = "apto";
 let includeTruck = true;
 let elevatorOrigin = false;
 let elevatorDest = false;
+let quickDropoff = false;
+let packing = false;
 let historyFilter = "all";
+
+const QUICK_DROPOFF_DISCOUNT = 0.15;
+const PACKING_SURCHARGE = 0.45;
 let moversManual = false;
 let hoursManual = false;
 let truckManual = false;
@@ -428,6 +445,18 @@ function toggleElevator(side) {
     $("elevDestToggle").classList.toggle("on", elevatorDest);
   }
   recomputeAuto();
+  render();
+}
+
+function toggleQuickDropoff() {
+  quickDropoff = !quickDropoff;
+  $("quickDropoffToggle").classList.toggle("on", quickDropoff);
+  render();
+}
+
+function togglePacking() {
+  packing = !packing;
+  $("packingToggle").classList.toggle("on", packing);
   render();
 }
 
@@ -539,14 +568,20 @@ function calculate() {
     }
     milesCost = perMile * miles;
   }
-  const total = labor + truckBase + milesCost;
+  const packingSurcharge = packing ? labor * PACKING_SURCHARGE : 0;
+  const subtotal = labor + packingSurcharge + truckBase + milesCost;
+  const discount = quickDropoff ? subtotal * QUICK_DROPOFF_DISCOUNT : 0;
+  const total = subtotal - discount;
 
   return {
     includeTruck, type: serviceType, propertyType, rooms,
     stairsOrigin: so, stairsDest: sd,
     elevatorOrigin: propertyType === "apto" ? elevatorOrigin : false,
     elevatorDest: propertyType === "apto" ? elevatorDest : false,
-    movers, hours, truckCfg, miles, rate, labor, truckBase, milesCost, perMile, total
+    quickDropoff, packing,
+    movers, hours, truckCfg, miles, rate, labor, packingSurcharge,
+    truckBase, milesCost, perMile,
+    subtotal, discount, total
   };
 }
 
@@ -559,6 +594,12 @@ function render() {
       <span>${fmt(c.labor)}</span>
     </div>`
   ];
+  if (c.packing && c.packingSurcharge > 0) {
+    rows.push(`<div class="row">
+      <span>Packing <span class="muted">(+45% del labor)</span></span>
+      <span>${fmt(c.packingSurcharge)}</span>
+    </div>`);
+  }
   if (c.includeTruck) {
     if (c.type === "local") {
       const cfgLabel = TRUCK_CONFIGS[c.truckCfg].label;
@@ -573,6 +614,16 @@ function render() {
     </div>`);
   } else {
     rows.push(`<div class="row"><span class="muted">Sin camión — solo mano de obra</span><span></span></div>`);
+  }
+  if (c.quickDropoff && c.discount > 0) {
+    rows.push(`<div class="row">
+      <span style="color:#6b7280; font-style:italic;">Subtotal</span>
+      <span style="color:#6b7280;">${fmt(c.subtotal)}</span>
+    </div>`);
+    rows.push(`<div class="row" style="color:#059669;">
+      <span>Descuento <span class="muted" style="color:#10b981;">(dejar en un punto, -15%)</span></span>
+      <span>−${fmt(c.discount)}</span>
+    </div>`);
   }
   rows.push(`<div class="row total">
     <span>Total</span>
@@ -634,6 +685,12 @@ function renderHistory() {
     const propBadge = q.propertyType === "casa"
       ? '<span class="badge casa">CASA</span>'
       : '<span class="badge apto">APTO</span>';
+    const dropoffBadge = q.quickDropoff
+      ? '<span class="badge" style="background:#fef3c7; color:#92400e;">-15%</span>'
+      : '';
+    const packingBadge = q.packing
+      ? '<span class="badge" style="background:#dbeafe; color:#1e40af;">PACKING</span>'
+      : '';
     const truckLabel = (q.includeTruck !== false && q.truckCfg && TRUCK_CONFIGS[q.truckCfg])
       ? TRUCK_CONFIGS[q.truckCfg].label
       : null;
@@ -647,7 +704,7 @@ function renderHistory() {
     return `
     <div class="history-item">
       <div class="history-info">
-        <div class="name">${typeBadge}${propBadge}${q.client || "Sin nombre"}</div>
+        <div class="name">${typeBadge}${propBadge}${packingBadge}${dropoffBadge}${q.client || "Sin nombre"}</div>
         <div class="meta">${meta}</div>
         ${sellerLine}
       </div>
@@ -678,10 +735,15 @@ function saveQuote() {
     stairsDest: c.stairsDest,
     elevatorOrigin: c.elevatorOrigin,
     elevatorDest: c.elevatorDest,
+    quickDropoff: c.quickDropoff,
+    packing: c.packing,
     movers: c.movers,
     hours: parseFloat(c.hours),
     truckCfg: c.includeTruck ? c.truckCfg : null,
     miles: c.miles,
+    packingSurcharge: c.packingSurcharge,
+    subtotal: c.subtotal,
+    discount: c.discount,
     total: c.total
   };
   const list = loadHistory();
@@ -729,6 +791,12 @@ function resetForm() {
   elevatorDest = false;
   $("elevOriginToggle").classList.remove("on");
   $("elevDestToggle").classList.remove("on");
+  // Reset quick dropoff
+  quickDropoff = false;
+  $("quickDropoffToggle").classList.remove("on");
+  // Reset packing
+  packing = false;
+  $("packingToggle").classList.remove("on");
   // Reset de toggles
   if (!includeTruck) toggleTruck();
   setProperty("apto");
