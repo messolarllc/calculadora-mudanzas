@@ -538,6 +538,7 @@ function saveQuote() {
   list.unshift(quote);
   saveHistory(list);
   renderHistory();
+  resetForm();
   toast("Cotización guardada");
 }
 
@@ -549,26 +550,37 @@ function deleteQuote(i) {
 }
 
 function resetForm() {
+  // Vaciar todos los campos visualmente
   $("client").value = "";
-  $("rooms").value = 2;
-  $("stairsOrigin").value = 0;
-  $("stairsDest").value = 0;
-  $("miles").value = 0;
+  $("rooms").value = "";
+  $("stairsOrigin").value = "";
+  $("stairsDest").value = "";
+  $("miles").value = "";
+  $("movers").value = "";
+  $("hours").value = "";
+  // Reset de banderas manuales
   moversManual = false;
   hoursManual = false;
   truckManual = false;
+  // Reset visual de movers
   $("movers").readOnly = true;
   $("movers").classList.add("auto");
   $("moversToggle").textContent = "Editar manualmente";
+  // Reset visual de horas
   $("hours").readOnly = true;
   $("hours").classList.add("auto");
   $("hoursToggle").textContent = "Editar manualmente";
-  $("truckConfig").disabled = false;
+  // Reset visual de camión
+  $("truckConfig").disabled = true;
   $("truckConfig").classList.add("auto");
   $("truckToggle").textContent = "Editar manualmente";
+  // Reset de toggles
   if (!includeTruck) toggleTruck();
   setProperty("apto");
   setType("local");
+  // Recompute con valores vacíos y re-render
+  recomputeAuto();
+  render();
 }
 
 ["rooms", "stairsOrigin", "stairsDest", "miles"].forEach(id => {
